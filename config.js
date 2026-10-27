@@ -1,7 +1,7 @@
 window.SITE_CONFIG = {
     "avatarUrl": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80",
-    "userNameMain": "KIRA",
-    "userNameSub": "雲川",
+    "userNameMain": "Xy",
+    "userNameSub": "个人空间站",
     "tgUsername": "your_username",
     "emailAddress": "example@gmail.com",
     "tool1Icon": "fa-solid fa-wand-magic-sparkles",
@@ -12,5 +12,5 @@ window.SITE_CONFIG = {
     "tool2Title": "自定义工具二名称",
     "tool2Desc": "这里是工具二的简短介绍或功能描述",
     "tool2Url": "https://your-tool-2.com",
-    "usdtAddress": "TY8x9KmLpQv2sWnE4R7tY1uI3oP5aS6dF0"
+    "usdtAddress": ""
 };
