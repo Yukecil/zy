@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>星轨控制台 - 安全验证</title>
+    <title> Xy </title>
     <!-- Google Fonts & FontAwesome Icons -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -443,14 +443,14 @@
                 <i class="fa-solid fa-shield-halved"></i>
             </div>
             <div class="login-title">
-                <h2 id="loginTitleText">后台安全锁</h2>
-                <p id="loginDescText">请输入管理密码以继续操作</p>
+                <h2>后台安全锁</h2>
+                <p>请输入管理密码以进入后台</p>
             </div>
             <div class="form-group" style="text-align: left;">
                 <input type="password" id="loginPasswordInput" class="form-input" placeholder="请输入密码" style="text-align: center; font-size: 16px; letter-spacing: 2px;">
             </div>
             <button class="btn-primary" onclick="handleAuth()" style="width: 100%; padding: 14px;">
-                <i class="fa-solid fa-unlock" id="authBtnIcon"></i> <span id="authBtnText">解锁控制台</span>
+                <i class="fa-solid fa-unlock"></i> 解锁控制台
             </button>
         </div>
     </div>
@@ -470,28 +470,8 @@
             <button class="logout-btn" onclick="lockAdmin()"><i class="fa-solid fa-lock"></i> 锁定</button>
         </header>
 
-        <!-- 0. GitHub API 授权配置 (优先展开) -->
-        <section class="form-section open" id="section-github">
-            <div class="section-header" onclick="toggleSection('section-github')">
-                <div class="section-title">
-                    <i class="fa-brands fa-github" style="color:#fff;"></i> GitHub 同步密钥配置 (首次必填)
-                </div>
-                <i class="fa-solid fa-chevron-down collapse-icon"></i>
-            </div>
-            <div class="section-body">
-                <div class="form-group">
-                    <label class="form-label">GitHub 仓库路径 <span class="sub">用户名/仓库名</span></label>
-                    <input type="text" id="ghRepo" class="form-input" placeholder="例: Yukecil/zy">
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Personal Access Token <span class="sub">ghp_开头的密钥</span></label>
-                    <input type="password" id="ghToken" class="form-input" placeholder="ghp_xxxxxxxxxxxx">
-                </div>
-            </div>
-        </section>
-
         <!-- 1. 个人基本信息 -->
-        <section class="form-section" id="section-profile">
+        <section class="form-section open" id="section-profile">
             <div class="section-header" onclick="toggleSection('section-profile')">
                 <div class="section-title">
                     <i class="fa-solid fa-user-gear"></i> 个人基本信息
@@ -624,45 +604,28 @@
     <div class="toast" id="toast">同步成功！</div>
 
     <script>
-        /* ==================== 动态密码管理 ==================== */
-        const savedPassword = localStorage.getItem('admin_custom_pwd');
+        /* ==================== 固化配置区 ==================== */
+        // 在这里直接修改你的仓库路径、Token 和 管理员密码
+        const HARDCODED_REPO = "Yukecil/zy";
+        const HARDCODED_TOKEN = "你的ghp_开头的Token粘在这里"; 
+        const HARDCODED_PASSWORD = "888888"; // <--- 在这里修改你的后台管理密码
+        // ====================================================
 
         window.addEventListener('DOMContentLoaded', () => {
-            if (!savedPassword) {
-                // 如果本地没有设置过密码，切换为“初始化密码”模式
-                document.getElementById('loginTitleText').textContent = "初始化管理员密码";
-                document.getElementById('loginDescText').textContent = "检测到首次使用，请设置您的专属管理密码";
-                document.getElementById('loginPasswordInput').placeholder = "请设置新密码";
-                document.getElementById('authBtnIcon').className = "fa-solid fa-key";
-                document.getElementById('authBtnText').textContent = "确认并保存密码";
-            } else if (sessionStorage.getItem('admin_logged_in') === 'true') {
+            if (sessionStorage.getItem('admin_logged_in') === 'true') {
                 document.getElementById('loginOverlay').classList.add('hidden');
             }
         });
 
         function handleAuth() {
             const inputVal = document.getElementById('loginPasswordInput').value.trim();
-            if (!inputVal) {
-                alert('密码不能为空！');
-                return;
-            }
-
-            if (!savedPassword) {
-                // 首次设置密码
-                localStorage.setItem('admin_custom_pwd', inputVal);
+            if (inputVal === HARDCODED_PASSWORD) {
                 sessionStorage.setItem('admin_logged_in', 'true');
                 document.getElementById('loginOverlay').classList.add('hidden');
-                alert('🎉 管理密码设置成功！请牢记您的密码。');
+                document.getElementById('loginPasswordInput').value = '';
             } else {
-                // 验证密码
-                if (inputVal === savedPassword) {
-                    sessionStorage.setItem('admin_logged_in', 'true');
-                    document.getElementById('loginOverlay').classList.add('hidden');
-                    document.getElementById('loginPasswordInput').value = '';
-                } else {
-                    alert('密码错误，请重新输入！');
-                    document.getElementById('loginPasswordInput').value = '';
-                }
+                alert('密码错误，请重新输入！');
+                document.getElementById('loginPasswordInput').value = '';
             }
         }
 
@@ -675,16 +638,12 @@
             document.getElementById('loginOverlay').classList.remove('hidden');
             document.getElementById('loginPasswordInput').value = '';
         }
-        // ========================================================
 
         function toggleSection(sectionId) {
             document.getElementById(sectionId).classList.toggle('open');
         }
 
         function loadConfig() {
-            document.getElementById('ghRepo').value = localStorage.getItem('gh_repo') || '';
-            document.getElementById('ghToken').value = localStorage.getItem('gh_token') || '';
-
             const config = window.SITE_CONFIG || {};
             document.getElementById('avatarUrl').value = config.avatarUrl || '';
             document.getElementById('userNameMain').value = config.userNameMain || '';
@@ -706,17 +665,13 @@
         }
 
         async function syncToGitHub() {
-            const repo = document.getElementById('ghRepo').value.trim();
-            const token = document.getElementById('ghToken').value.trim();
+            const repo = HARDCODED_REPO;
+            const token = HARDCODED_TOKEN;
 
-            if (!repo || !token) {
-                alert('请填写 GitHub 仓库名和 Token！');
-                document.getElementById('section-github').classList.add('open');
+            if (!token || token.includes("你的ghp")) {
+                alert('请先在 admin.html 代码上方的 HARDCODED_TOKEN 中填入你的 GitHub Token！');
                 return;
             }
-
-            localStorage.setItem('gh_repo', repo);
-            localStorage.setItem('gh_token', token);
 
             const saveBtn = document.getElementById('saveBtn');
             saveBtn.disabled = true;
