@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>星轨导航 - KIRA 的个人空间站</title>
+    <!-- Google Fonts & FontAwesome Icons -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- 动态读取配置，加时间戳防浏览器缓存 -->
+    <script>
+        document.write('<script src="config.js?v=' + Date.now() + '"><\/script>');
+    </script>
+    
+    <style>
+        :root {
+            --bg-base: #0a0814;
+            --accent-purple: #9d4edd;
+            --accent-pink: #ff2a85;
+            --accent-cyan: #00f0ff;
+            --glass-bg: rgba(22, 16, 38, 0.65);
+            --glass-border: rgba(255, 255, 255, 0.12);
+            --glass-glow: rgba(157, 78, 221, 0.25);
+            --text-primary: #ffffff;
+            --text-secondary: rgba(255, 255, 255, 0.7);
+            --text-muted: rgba(255, 255, 255, 0.45);
+            --usdt-green: #26A17B;
+            --alert-red: #ff4d4d;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: 'Plus Jakarta Sans', 'Noto Sans SC', sans-serif;
+            background-color: var(--bg-base);
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            overflow-x: hidden;
+            position: relative;
+            padding: 24px 16px 40px;
+        }
+
+        #nebula-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        .app-container {
+            width: 100%;
+            max-width: 440px;
+            z-index: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            animation: pageFadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        @keyframes pageFadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .profile-card {
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 28px;
+            padding: 28px 20px 24px;
+            text-align: center;
+            position: relative;
+            box-shadow: 0 16px 40px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+            overflow: hidden;
+        }
+
+        .profile-card::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle at 50% 0%, rgba(255, 42, 133, 0.15), transparent 60%);
+            pointer-events: none;
+        }
+
+        .avatar-wrapper {
+            position: relative;
+            width: 96px;
+            height: 96px;
+            margin: 0 auto 16px;
+        }
+
+        .avatar-img {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid rgba(255, 255, 255, 0.8);
+            box-shadow: 0 0 25px var(--glass-glow);
+        }
+
+        .avatar-glow {
+            position: absolute;
+            inset: -4px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--accent-pink), var(--accent-purple), var(--accent-cyan));
+            z-index: -1;
+            filter: blur(8px);
+            opacity: 0.8;
+            animation: pulseGlow 4s ease-in-out infinite alternate;
+        }
+
+        @keyframes pulseGlow {
+            0% { transform: scale(0.96); opacity: 0.6; }
+            100% { transform: scale(1.04); opacity: 0.9; }
+        }
+
+        .pro-badge {
+            position: absolute;
+            bottom: -2px;
+            right: -2px;
+            background: linear-gradient(135deg, #ff2a85, #9d4edd);
+            color: #fff;
+            font-size: 10px;
+            font-weight: 800;
+            padding: 3px 8px;
+            border-radius: 12px;
+            border: 2px solid #0a0814;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+            letter-spacing: 0.5px;
+        }
+
+        .user-name {
+            font-size: 22px;
+            font-weight: 800;
+            color: var(--text-primary);
+            letter-spacing: 0.5px;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .user-name span.highlight {
+            background: linear-gradient(135deg, #fff 30%, var(--accent-purple));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .hitokoto-box {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 16px;
+            padding: 12px 16px;
+            margin: 0 auto;
+            max-width: 360px;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            position: relative;
+        }
+
+        .hitokoto-text {
+            font-size: 13px;
+            color: rgba(255, 255, 255, 0.92);
+            font-weight: 700;
+            line-height: 1.6;
+            letter-spacing: 0.3px;
+            min-height: 22px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: opacity 0.4s ease, transform 0.4s ease;
+        }
+
+        .hitokoto-text.fade-out {
+            opacity: 0;
+            transform: translateY(-4px);
+        }
+
+        .hitokoto-text.fade-in {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .social-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+        }
+
+        .social-item {
+            background: var(--glass-bg);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 16px 12px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            text-decoration: none;
+            color: var(--text-primary);
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+        }
+
+        .social-item:active {
+            transform: scale(0.94);
+            background: rgba(255, 255, 255, 0.12);
+        }
+
+        .social-icon-box {
+            width: 42px;
+            height: 42px;
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            color: #fff;
+            flex-shrink: 0;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        .social-meta {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            min-width: 0;
+        }
+
+        .social-title {
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .social-sub {
+            font-size: 11px;
+            color: var(--text-muted);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .links-list {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        .link-card {
+            background: var(--glass-bg);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--glass-border);
+            border-radius: 22px;
+            padding: 16px 20px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            text-decoration: none;
+            color: var(--text-primary);
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+        }
+
+        .link-card::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.15), transparent);
+            transition: 0.6s;
+        }
+
+        .link-card:active {
+            transform: scale(0.98);
+        }
+
+        .link-icon-wrapper {
+            width: 48px;
+            height: 48px;
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+            flex-shrink: 0;
+            color: #fff;
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+        }
+
+        .link-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .link-title {
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 4px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .link-desc {
+            font-size: 12px;
+            color: var(--text-muted);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .link-arrow {
+            color: var(--text-muted);
+            font-size: 14px;
+            transition: transform 0.3s ease;
+        }
+
+        .link-card:active .link-arrow {
+            transform: translateX(4px);
+            color: var(--text-primary);
+        }
+
+        .donate-section {
+            background: var(--glass-bg);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--glass-border);
+            border-radius: 22px;
+            padding: 16px 18px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+        }
+
+        .donate-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex: 1;
+            min-width: 0;
+        }
+
+        .usdt-icon-box {
+            width: 42px;
+            height: 42px;
+            border-radius: 14px;
+            background: linear-gradient(135deg, #26A17B, #1d7a5d);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            color: #fff;
+            flex-shrink: 0;
+            box-shadow: 0 4px 14px rgba(38, 161, 123, 0.4);
+        }
+
+        .donate-details {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            min-width: 0;
+            flex: 1;
+        }
+
+        .donate-title-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        .donate-title {
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--text-primary);
+            white-space: nowrap;
+        }
+
+        .alert-badge {
+            background: rgba(255, 77, 77, 0.15);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 77, 77, 0.35);
+            color: var(--alert-red);
+            font-size: 10px;
+            font-weight: 700;
+            padding: 2px 6px;
+            border-radius: 6px;
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+            box-shadow: 0 2px 8px rgba(255, 77, 77, 0.15);
+        }
+
+        .donate-address-text {
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.85);
+            font-family: monospace;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            background: rgba(255, 255, 255, 0.06);
+            padding: 3px 8px;
+            border-radius: 6px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            width: fit-content;
+            max-width: 100%;
+            letter-spacing: 0.5px;
+        }
+
+        .copy-btn {
+            background: rgba(38, 161, 123, 0.2);
+            border: 1px solid rgba(38, 161, 123, 0.4);
+            color: #53f2c2;
+            font-size: 12px;
+            font-weight: 700;
+            padding: 9px 14px;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-shrink: 0;
+        }
+
+        .copy-btn:active {
+            transform: scale(0.92);
+            background: #26A17B;
+            color: #fff;
+        }
+
+        .footer {
+            text-align: center;
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-top: 8px;
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: rgba(38, 161, 123, 0.95);
+            backdrop-filter: blur(10px);
+            color: #fff;
+            font-size: 13px;
+            font-weight: 700;
+            padding: 10px 20px;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            z-index: 1000;
+            opacity: 0;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            pointer-events: none;
+        }
+
+        .toast.show {
+            transform: translateX(-50%) translateY(0);
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+
+    <canvas id="nebula-canvas"></canvas>
+
+    <div class="app-container">
+        
+        <div class="profile-card">
+            <div class="avatar-wrapper">
+                <div class="avatar-glow"></div>
+                <img src="" alt="Avatar" class="avatar-img" id="avatarImg">
+                <div class="pro-badge">PRO</div>
+            </div>
+            
+            <h1 class="user-name">
+                <span class="highlight" id="userNameMain">KIRA</span> // <span id="userNameSub">雲川</span>
+            </h1>
+
+            <div class="hitokoto-box">
+                <p class="hitokoto-text" id="hitokotoText">
+                    <i class="fa-solid fa-circle-notch fa-spin" style="margin-right: 6px; font-size: 12px; opacity: 0.6;"></i> 正在连接星轨一言...
+                </p>
+            </div>
+        </div>
+
+        <div class="social-grid">
+            <a href="#" id="tgLink" target="_blank" class="social-item">
+                <div class="social-icon-box" style="background: linear-gradient(135deg, #2AABEE, #229ED9);">
+                    <i class="fa-brands fa-telegram"></i>
+                </div>
+                <div class="social-meta">
+                    <span class="social-title">Telegram</span>
+                    <span class="social-sub" id="tgText">@username</span>
+                </div>
+            </a>
+
+            <a href="#" id="emailLink" class="social-item">
+                <div class="social-icon-box" style="background: linear-gradient(135deg, #FF416C, #FF4B2B);">
+                    <i class="fa-solid fa-envelope"></i>
+                </div>
+                <div class="social-meta">
+                    <span class="social-title">联系邮箱</span>
+                    <span class="social-sub">发送邮件</span>
+                </div>
+            </a>
+        </div>
+
+        <div class="links-list">
+            <a href="#" id="tool1Url" target="_blank" class="link-card">
+                <div class="link-icon-wrapper" style="background: linear-gradient(135deg, #ff2a85, #9d4edd);">
+                    <i id="tool1Icon" class="fa-solid fa-wand-magic-sparkles"></i>
+                </div>
+                <div class="link-info">
+                    <div class="link-title" id="tool1Title">工具一名称</div>
+                    <div class="link-desc" id="tool1Desc">工具一功能描述</div>
+                </div>
+                <i class="fa-solid fa-chevron-right link-arrow"></i>
+            </a>
+
+            <a href="#" id="tool2Url" target="_blank" class="link-card">
+                <div class="link-icon-wrapper" style="background: linear-gradient(135deg, #00f0ff, #0072ff);">
+                    <i id="tool2Icon" class="fa-solid fa-code"></i>
+                </div>
+                <div class="link-info">
+                    <div class="link-title" id="tool2Title">工具二名称</div>
+                    <div class="link-desc" id="tool2Desc">工具二功能描述</div>
+                </div>
+                <i class="fa-solid fa-chevron-right link-arrow"></i>
+            </a>
+        </div>
+
+        <div class="donate-section">
+            <div class="donate-info">
+                <div class="usdt-icon-box">
+                    <i class="fa-solid fa-coins"></i>
+                </div>
+                <div class="donate-details">
+                    <div class="donate-title-row">
+                        <span class="donate-title">USDT 打赏地址</span>
+                        <span class="alert-badge" id="alertBadge">
+                            <i class="fa-solid fa-triangle-exclamation"></i> 核对尾号: <span id="last5Digits">---</span>
+                        </span>
+                    </div>
+                    <div class="donate-address-text" id="usdtAddressDisplay">------</div>
+                </div>
+            </div>
+            <button class="copy-btn" onclick="copyUSDT()">
+                <i class="fa-regular fa-copy"></i> 复制地址
+            </button>
+        </div>
+
+        <footer class="footer">
+            <p>© 2026 KIRA. Powered by Galaxy Engine</p>
+        </footer>
+    </div>
+
+    <div class="toast" id="toast"><i class="fa-solid fa-circle-check" style="margin-right: 6px;"></i> USDT 地址已复制到剪贴板！</div>
+
+    <script>
+        let rawUsdtAddress = "TY8x9KmLpQv2sWnE4R7tY1uI3oP5aS6dF0";
+
+        /* 渲染 config.js 中的最新配置 */
+        function loadConfig() {
+            const config = window.SITE_CONFIG || {};
+            if (config.avatarUrl) document.getElementById('avatarImg').src = config.avatarUrl;
+            if (config.userNameMain) document.getElementById('userNameMain').textContent = config.userNameMain;
+            if (config.userNameSub) document.getElementById('userNameSub').textContent = config.userNameSub;
+
+            if (config.tgUsername) {
+                document.getElementById('tgLink').href = `https://t.me/${config.tgUsername}`;
+                document.getElementById('tgText').textContent = `@${config.tgUsername}`;
+            }
+            if (config.emailAddress) {
+                document.getElementById('emailLink').href = `mailto:${config.emailAddress}`;
+            }
+
+            if (config.tool1Icon) document.getElementById('tool1Icon').className = config.tool1Icon;
+            if (config.tool1Title) document.getElementById('tool1Title').textContent = config.tool1Title;
+            if (config.tool1Desc) document.getElementById('tool1Desc').textContent = config.tool1Desc;
+            if (config.tool1Url) document.getElementById('tool1Url').href = config.tool1Url;
+
+            if (config.tool2Icon) document.getElementById('tool2Icon').className = config.tool2Icon;
+            if (config.tool2Title) document.getElementById('tool2Title').textContent = config.tool2Title;
+            if (config.tool2Desc) document.getElementById('tool2Desc').textContent = config.tool2Desc;
+            if (config.tool2Url) document.getElementById('tool2Url').href = config.tool2Url;
+
+            if (config.usdtAddress) rawUsdtAddress = config.usdtAddress;
+        }
+
+        loadConfig();
+
+        function initUsdtAddress() {
+            const displayEl = document.getElementById('usdtAddressDisplay');
+            const last5El = document.getElementById('last5Digits');
+
+            if (rawUsdtAddress && rawUsdtAddress.length > 13) {
+                const start = rawUsdtAddress.substring(0, 8);
+                const end = rawUsdtAddress.substring(rawUsdtAddress.length - 8);
+                displayEl.textContent = `${start}••••${end}`;
+                last5El.textContent = rawUsdtAddress.substring(rawUsdtAddress.length - 5);
+            } else {
+                displayEl.textContent = rawUsdtAddress;
+            }
+        }
+
+        initUsdtAddress();
+
+        /* Canvas 背景 */
+        const canvas = document.getElementById('nebula-canvas');
+        const ctx = canvas.getContext('2d');
+        let width, height, particles = [];
+
+        function resizeCanvas() {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        class Particle {
+            constructor() { this.reset(); }
+            reset() {
+                this.x = Math.random() * width;
+                this.y = Math.random() * height;
+                this.size = Math.random() * 2 + 0.5;
+                this.speedX = (Math.random() - 0.5) * 0.3;
+                this.speedY = (Math.random() - 0.5) * 0.3;
+                this.alpha = Math.random() * 0.7 + 0.2;
+                this.pulseSpeed = Math.random() * 0.02 + 0.005;
+            }
+            update() {
+                this.x += this.speedX;
+                this.y += this.speedY;
+                this.alpha += Math.sin(Date.now() * this.pulseSpeed) * 0.01;
+                if (this.x < 0 || this.x > width || this.y < 0 || this.y > height) this.reset();
+            }
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(180, 150, 255, ${Math.max(0.1, Math.min(1, this.alpha))})`;
+                ctx.shadowBlur = 8;
+                ctx.shadowColor = 'rgba(157, 78, 221, 0.8)';
+                ctx.fill();
+            }
+        }
+
+        for (let i = 0; i < 60; i++) particles.push(new Particle());
+
+        function animateCanvas() {
+            ctx.clearRect(0, 0, width, height);
+            let grad1 = ctx.createRadialGradient(width * 0.2, height * 0.3, 10, width * 0.2, height * 0.3, 300);
+            grad1.addColorStop(0, 'rgba(255, 42, 133, 0.12)');
+            grad1.addColorStop(1, 'transparent');
+            ctx.fillStyle = grad1;
+            ctx.fillRect(0, 0, width, height);
+
+            let grad2 = ctx.createRadialGradient(width * 0.8, height * 0.7, 10, width * 0.8, height * 0.7, 350);
+            grad2.addColorStop(0, 'rgba(157, 78, 221, 0.15)');
+            grad2.addColorStop(1, 'transparent');
+            ctx.fillStyle = grad2;
+            ctx.fillRect(0, 0, width, height);
+
+            particles.forEach(p => { p.update(); p.draw(); });
+            requestAnimationFrame(animateCanvas);
+        }
+        animateCanvas();
+
+        /* 每日一言 */
+        const hitokotoEl = document.getElementById('hitokotoText');
+        const defaultHitokoto = "在星辰大海之间，寻找属于自己的轨道。";
+
+        async function fetchHitokoto() {
+            hitokotoEl.classList.remove('fade-in');
+            hitokotoEl.classList.add('fade-out');
+
+            setTimeout(async () => {
+                try {
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 3500);
+
+                    const response = await fetch('https://v1.hitokoto.cn', { signal: controller.signal });
+                    clearTimeout(timeoutId);
+
+                    if (!response.ok) throw new Error('API 请求失败');
+
+                    const data = await response.json();
+                    hitokotoEl.textContent = data.hitokoto || defaultHitokoto;
+                } catch (err) {
+                    hitokotoEl.textContent = defaultHitokoto;
+                } finally {
+                    hitokotoEl.classList.remove('fade-out');
+                    hitokotoEl.classList.add('fade-in');
+                }
+            }, 400);
+        }
+
+        fetchHitokoto();
+        setInterval(fetchHitokoto, 10000);
+
+        function copyUSDT() {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(rawUsdtAddress).then(() => showToast());
+            } else {
+                const textarea = document.createElement('textarea');
+                textarea.value = rawUsdtAddress;
+                document.body.appendChild(textarea);
+                textarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textarea);
+                showToast();
+            }
+        }
+
+        function showToast() {
+            const toast = document.getElementById('toast');
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 2500);
+        }
+    </script>
+</body>
+</html>
