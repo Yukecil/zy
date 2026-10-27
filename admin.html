@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>星轨控制台 - 自动同步后台</title>
+    <title>星轨控制台 - 安全验证</title>
     <!-- Google Fonts & FontAwesome Icons -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
+    
     <!-- 动态载入当前云端数据 -->
     <script>
         document.write('<script src="config.js?v=' + Date.now() + '"><\/script>');
@@ -58,6 +58,66 @@
             height: 100%;
             z-index: 0;
             pointer-events: none;
+        }
+
+        /* 登录锁屏遮罩层 */
+        .login-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(10, 8, 20, 0.92);
+            backdrop-filter: blur(25px);
+            -webkit-backdrop-filter: blur(25px);
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            transition: opacity 0.4s ease, visibility 0.4s ease;
+        }
+
+        .login-overlay.hidden {
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+        }
+
+        .login-card {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 28px;
+            padding: 32px 24px;
+            width: 100%;
+            max-width: 380px;
+            text-align: center;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .login-icon {
+            width: 64px;
+            height: 64px;
+            border-radius: 20px;
+            background: linear-gradient(135deg, var(--accent-pink), var(--accent-purple));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+            color: #fff;
+            margin: 0 auto;
+            box-shadow: 0 8px 20px rgba(255, 42, 133, 0.4);
+        }
+
+        .login-title h2 {
+            font-size: 20px;
+            font-weight: 800;
+            margin-bottom: 4px;
+        }
+
+        .login-title p {
+            font-size: 12px;
+            color: var(--text-muted);
         }
 
         .admin-container {
@@ -116,6 +176,19 @@
             font-size: 11px;
             color: var(--text-muted);
         }
+
+        .logout-btn {
+            background: rgba(255, 77, 77, 0.15);
+            border: 1px solid rgba(255, 77, 77, 0.3);
+            color: #ff4d4d;
+            font-size: 12px;
+            font-weight: 700;
+            padding: 8px 12px;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .logout-btn:active { background: rgba(255, 77, 77, 0.3); }
 
         .form-section {
             background: var(--glass-bg);
@@ -363,8 +436,27 @@
 
     <canvas id="nebula-canvas"></canvas>
 
+    <!-- 登录安全验证弹窗 -->
+    <div class="login-overlay" id="loginOverlay">
+        <div class="login-card">
+            <div class="login-icon">
+                <i class="fa-solid fa-shield-halved"></i>
+            </div>
+            <div class="login-title">
+                <h2 id="loginTitleText">后台安全锁</h2>
+                <p id="loginDescText">请输入管理密码以继续操作</p>
+            </div>
+            <div class="form-group" style="text-align: left;">
+                <input type="password" id="loginPasswordInput" class="form-input" placeholder="请输入密码" style="text-align: center; font-size: 16px; letter-spacing: 2px;">
+            </div>
+            <button class="btn-primary" onclick="handleAuth()" style="width: 100%; padding: 14px;">
+                <i class="fa-solid fa-unlock" id="authBtnIcon"></i> <span id="authBtnText">解锁控制台</span>
+            </button>
+        </div>
+    </div>
+
     <div class="admin-container">
-        
+        
         <header class="admin-header">
             <div class="header-title-box">
                 <div class="header-icon">
@@ -375,6 +467,7 @@
                     <p>全网秒级自动同步后台</p>
                 </div>
             </div>
+            <button class="logout-btn" onclick="lockAdmin()"><i class="fa-solid fa-lock"></i> 锁定</button>
         </header>
 
         <!-- 0. GitHub API 授权配置 (优先展开) -->
@@ -388,7 +481,7 @@
             <div class="section-body">
                 <div class="form-group">
                     <label class="form-label">GitHub 仓库路径 <span class="sub">用户名/仓库名</span></label>
-                    <input type="text" id="ghRepo" class="form-input" placeholder="例: your-name/my-space">
+                    <input type="text" id="ghRepo" class="form-input" placeholder="例: Yukecil/zy">
                 </div>
                 <div class="form-group">
                     <label class="form-label">Personal Access Token <span class="sub">ghp_开头的密钥</span></label>
@@ -531,24 +624,74 @@
     <div class="toast" id="toast">同步成功！</div>
 
     <script>
+        /* ==================== 动态密码管理 ==================== */
+        const savedPassword = localStorage.getItem('admin_custom_pwd');
+
+        window.addEventListener('DOMContentLoaded', () => {
+            if (!savedPassword) {
+                // 如果本地没有设置过密码，切换为“初始化密码”模式
+                document.getElementById('loginTitleText').textContent = "初始化管理员密码";
+                document.getElementById('loginDescText').textContent = "检测到首次使用，请设置您的专属管理密码";
+                document.getElementById('loginPasswordInput').placeholder = "请设置新密码";
+                document.getElementById('authBtnIcon').className = "fa-solid fa-key";
+                document.getElementById('authBtnText').textContent = "确认并保存密码";
+            } else if (sessionStorage.getItem('admin_logged_in') === 'true') {
+                document.getElementById('loginOverlay').classList.add('hidden');
+            }
+        });
+
+        function handleAuth() {
+            const inputVal = document.getElementById('loginPasswordInput').value.trim();
+            if (!inputVal) {
+                alert('密码不能为空！');
+                return;
+            }
+
+            if (!savedPassword) {
+                // 首次设置密码
+                localStorage.setItem('admin_custom_pwd', inputVal);
+                sessionStorage.setItem('admin_logged_in', 'true');
+                document.getElementById('loginOverlay').classList.add('hidden');
+                alert('🎉 管理密码设置成功！请牢记您的密码。');
+            } else {
+                // 验证密码
+                if (inputVal === savedPassword) {
+                    sessionStorage.setItem('admin_logged_in', 'true');
+                    document.getElementById('loginOverlay').classList.add('hidden');
+                    document.getElementById('loginPasswordInput').value = '';
+                } else {
+                    alert('密码错误，请重新输入！');
+                    document.getElementById('loginPasswordInput').value = '';
+                }
+            }
+        }
+
+        document.getElementById('loginPasswordInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') handleAuth();
+        });
+
+        function lockAdmin() {
+            sessionStorage.removeItem('admin_logged_in');
+            document.getElementById('loginOverlay').classList.remove('hidden');
+            document.getElementById('loginPasswordInput').value = '';
+        }
+        // ========================================================
+
         function toggleSection(sectionId) {
             document.getElementById(sectionId).classList.toggle('open');
         }
 
-        // 初始化载入
         function loadConfig() {
-            // 本地秘钥
             document.getElementById('ghRepo').value = localStorage.getItem('gh_repo') || '';
             document.getElementById('ghToken').value = localStorage.getItem('gh_token') || '';
 
-            // 数据
             const config = window.SITE_CONFIG || {};
             document.getElementById('avatarUrl').value = config.avatarUrl || '';
             document.getElementById('userNameMain').value = config.userNameMain || '';
             document.getElementById('userNameSub').value = config.userNameSub || '';
             document.getElementById('tgUsername').value = config.tgUsername || '';
             document.getElementById('emailAddress').value = config.emailAddress || '';
-            
+            
             document.getElementById('tool1Icon').value = config.tool1Icon || '';
             document.getElementById('tool1Title').value = config.tool1Title || '';
             document.getElementById('tool1Desc').value = config.tool1Desc || '';
@@ -562,7 +705,6 @@
             document.getElementById('usdtAddress').value = config.usdtAddress || '';
         }
 
-        /* 核心：通过 GitHub API 自动提交 config.js 到仓库 */
         async function syncToGitHub() {
             const repo = document.getElementById('ghRepo').value.trim();
             const token = document.getElementById('ghToken').value.trim();
@@ -573,7 +715,6 @@
                 return;
             }
 
-            // 本地缓存秘钥
             localStorage.setItem('gh_repo', repo);
             localStorage.setItem('gh_token', token);
 
@@ -601,7 +742,6 @@
             const fileContent = "window.SITE_CONFIG = " + JSON.stringify(configData, null, 4) + ";";
 
             try {
-                // 1. 获取 config.js 的 SHA 签名
                 const getFileUrl = `https://api.github.com/repos/${repo}/contents/config.js`;
                 const getRes = await fetch(getFileUrl, {
                     headers: { 'Authorization': `token ${token}` }
@@ -613,7 +753,6 @@
                     sha = fileData.sha;
                 }
 
-                // UTF-8 base64 编码
                 const bytes = new TextEncoder().encode(fileContent);
                 let binary = '';
                 for (let i = 0; i < bytes.byteLength; i++) {
@@ -621,7 +760,6 @@
                 }
                 const base64Content = btoa(binary);
 
-                // 2. 提交更新 API
                 const putRes = await fetch(getFileUrl, {
                     method: 'PUT',
                     headers: {
@@ -668,7 +806,7 @@
 
         loadConfig();
 
-        /* Canvas 背景 */
+        // Canvas 背景
         const canvas = document.getElementById('nebula-canvas');
         const ctx = canvas.getContext('2d');
         let width, height, particles = [];
